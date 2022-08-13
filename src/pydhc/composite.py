@@ -122,7 +122,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
             weight_array = weights.reshape(-1,1)/total_weight
             # we can speed up the calculation even more by selecting indicies 
             # from the array that we are going to multiply
-            idx_inside = weight_array>0
+            idx_inside = weight_array.ravel()>0
             # then we sum the array 
             accumulated_array = np.nansum(array[idx_inside,:]*weight_array[idx_inside],0)
             # and insert into the output
