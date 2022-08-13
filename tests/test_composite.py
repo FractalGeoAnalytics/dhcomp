@@ -1,27 +1,23 @@
 import unittest
 from src.composite import composite
+import src
 import unittest
 import numpy as np
 from numpy.typing import NDArray
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_array_max_ulp
 
 
 class TestComposite(unittest.TestCase):
-    def test_enclosed(self):
-        fr: float = 0
-        to: float = 1
-        samplefrom: NDArray = np.arange(0, 2, 0.1)
-        sampleto: NDArray = samplefrom + 0.1
 
-        idx = composite._enclosed(fr, to, samplefrom, sampleto)
-        idxtest = samplefrom < 1
-        assert_array_equal(idx, idxtest)
-
-    def test_top_partial(self):
-        self.assertFalse(1)
-
-    def test_bottom_partial(self):
-        self.assertFalse(1)
+    def test_ones(self):
+        fr = np.arange(0, 10)
+        to = np.arange(1, 11)
+        cfr = np.arange(0,10,0.1)
+        cto = cfr+0.1
+        array = np.ones((cto.shape[0],1))
+        x  = composite(fr, to, cfr, cto, array)
+        y = np.ones((fr.shape[0],1))
+        assert_array_max_ulp(x,y,10)
 
     def test_composite_from_to_shape_fail(self):
         fr = np.arange(0, 10)
@@ -32,7 +28,9 @@ class TestComposite(unittest.TestCase):
     def test_composite_from_to_shape(self):
         fr = np.arange(0, 10)
         to = np.arange(1, 11)
-        composite(fr, to, 0, 1, np.ones((1, 1)))
+        cfr = np.arange(1)
+        cto = np.arange(1)+1
+        composite(fr, to, cfr, cto, np.ones((1, 1)))
 
 
 if __name__ == "__main__":

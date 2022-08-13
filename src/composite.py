@@ -3,9 +3,6 @@ import pandas as pd
 from numpy.typing import NDArray
 
 
-def samplestate():
-    """ """
-
 
 def _enclosed(
     fr: NDArray, to: NDArray, samplefrom: NDArray, sampleto: NDArray
@@ -51,10 +48,9 @@ def _contact(idx_partial, idx_enclosed):
     return np.logical_xor(idx_partial, idx_enclosed)
 
 def _sample_weight():
+    pass
 
-def composite(
-    cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArray, array: NDArray
-):
+def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArray, array: NDArray,method:str='soft') -> NDArray:
     """
     Simple function to composite drill hole data to a set of intervals:
     Handles compositing of data to intervals for both the hard and soft boundary conditions.
@@ -74,9 +70,7 @@ def composite(
     # first step is to confirm that the input data is consistent
     assert cfrom.shape[0] == cto.shape[0], "Composite from to are not the same size"
 
-    assert (
-        samplefrom.shape[0] == sampleto.shape[0]
-    ), "Sample from to are not the same size"
+    assert samplefrom.shape[0] == sampleto.shape[0], "Sample from to are not the same size"
 
     # all we are doing now is to loop over each of the from and to intervals
 
@@ -87,33 +81,36 @@ def composite(
     to: float
     accumulated_array:NDArray
     total_weight:NDArray
-    idx_enclosed:NDArray[np.bool]
-    idx_boundary:NDArray[np.bool]
-    idx_contact:NDArray[np.bool]
+
     coverage:float
 
     sample_length = sampleto-samplefrom
+    method='soft'
+    if method == 'soft':
+        cutoff = 0
+    else:
+        cutoff = 1
     for i in range(n_composites):
+        # extract the from and to of the desired interval
         fr = cfrom[i]
         to = cto[i]
-        idx_enclosed = _enclosed(fr, to, samplefrom, sampleto)
-        idx_boundary = _boundary(fr, to, samplefrom, sampleto)
-        idx_contact = _contact(idx_boundary, idx_enclosed)
-        if np.any(idx_contact):
-            # calculate the weight
-            # https://blogs.sas.com/content/sgf/2022/01/13/calculating-the-overlap-of-date-time-intervals/
-            weights = idx_contact.astype(float)
-            for j in np.where(idx_contact)[0]:
-                coverage =  max(0,min(samplefrom[j],fr)-min(sampleto[j],to)+1)
-                temp_weight = sample_length[j]/coverage
-                weights[j] =  temp_weight
-        else:
-            weights = idx_boundary
-
+        # this is the fast and simple way 
+        # to calculate if a sample interval is covered by 
+        # a composite interval rather calculating each of the states of coverage.
+        coverage = np.fmin(sampleto,to) - np.fmax(samplefrom,fr)
+        # coverage will return a negative value if the sample is not insite the composite interval
+        # the soft boundary case is the simplest to calculate 
+        # in this case we can have weights for a sample less than 1 and greater than 0
+        # if we wanted the hard boundary case we would only accept weights of 1
+        coverage[coverage<cutoff] = 0 # changing the 0 here 
+        # we only calculate a length weighted average
+        weights = coverage/sample_length
         total_weight = np.sum(weights)
-        
+        # once we have an array of normalised weights
+        # it is simple to multiple the sample array by the weights
         weight_array = weights.reshape(-1,1)/total_weight
-        accumulated_array = np.sum(array*weight_array,0)
-        output[i,:] = accumulated_array/total_weight
-
+        # then we sum the array 
+        accumulated_array = np.nansum(array*weight_array,0)
+        # and insert into the output
+        output[i,:] = accumulated_array
     return output
