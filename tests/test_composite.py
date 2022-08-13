@@ -1,6 +1,5 @@
 import unittest
-from src.composite import composite
-import src
+from src.pydhc import composite
 import unittest
 import numpy as np
 from numpy.typing import NDArray

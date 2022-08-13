@@ -85,6 +85,9 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     coverage:float
 
     sample_length = sampleto-samplefrom
+    # validate sample length always positive
+    # if it is 0 or negative this will cause issues with the weighted sum
+    idx_sample_fail = sample_length<=0
     method='soft'
     if method == 'soft':
         cutoff = 0
@@ -105,6 +108,9 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         coverage[coverage<cutoff] = 0 # changing the 0 here 
         # we only calculate a length weighted average
         weights = coverage/sample_length
+        # if the sample length is 0 or negative that will cause issues
+        # use the validation index to set that weight to 0
+        weights[idx_sample_fail] = 0
         total_weight = np.sum(weights)
         # once we have an array of normalised weights
         # it is simple to multiple the sample array by the weights
