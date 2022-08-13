@@ -106,17 +106,24 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         # in this case we can have weights for a sample less than 1 and greater than 0
         # if we wanted the hard boundary case we would only accept weights of 1
         coverage[coverage<cutoff] = 0 # changing the 0 here 
-        # we only calculate a length weighted average
-        weights = coverage/sample_length
-        # if the sample length is 0 or negative that will cause issues
-        # use the validation index to set that weight to 0
-        weights[idx_sample_fail] = 0
-        total_weight = np.sum(weights)
-        # once we have an array of normalised weights
-        # it is simple to multiple the sample array by the weights
-        weight_array = weights.reshape(-1,1)/total_weight
-        # then we sum the array 
-        accumulated_array = np.nansum(array*weight_array,0)
-        # and insert into the output
+        # the matrix multiply is quite slow when applying this to a very large array
+        # in the case when there are no intersections we can speed up the calculation
+        # quite significantly by carrying on the calculation if there are any samples
+        # with a positive weight
+        if np.any(coverage)>0:
+            # we only calculate a length weighted average
+            weights = coverage/sample_length
+            # if the sample length is 0 or negative that will cause issues
+            # use the validation index to set that weight to 0
+            weights[idx_sample_fail] = 0
+            total_weight = np.sum(weights)
+            # once we have an array of normalised weights
+            # it is simple to multiple the sample array by the weights
+            weight_array = weights.reshape(-1,1)/total_weight
+            # then we sum the array 
+            accumulated_array = np.nansum(array*weight_array,0)
+            # and insert into the output
+        else:
+            accumulated_array = 0
         output[i,:] = accumulated_array
     return output
