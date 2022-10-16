@@ -77,6 +77,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     n_composites: int = cfrom.shape[0]
     n_columns: int = array.shape[1]
     output: NDArray = np.zeros((n_composites, n_columns))*np.nan
+    sample_coverage:NDArray = np.zeros((n_composites, 1))
     fr: float
     to: float
     accumulated_array:NDArray
@@ -127,6 +128,8 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
             accumulated_array = np.nansum(array[idx_inside,:]*weight_array[idx_inside],0)
             # and insert into the output
         else:
-            accumulated_array = 0
+            accumulated_array = np.nan
         output[i,:] = accumulated_array
+        sample_coverage[i] = coverage
+
     return output
