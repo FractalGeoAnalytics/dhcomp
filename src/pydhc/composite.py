@@ -2,54 +2,6 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-
-
-def _enclosed(
-    fr: NDArray, to: NDArray, samplefrom: NDArray, sampleto: NDArray
-) -> NDArray[np.bool]:
-    """
-    calculates the intervals that are totally covered by the from and to depths
-    """
-    # the first step is to do the basic check of the intervals
-    idx_from: NDArray[
-        np.bool
-    ]  # idx of the array less than the from depth of the composite
-    idx_to: NDArray[
-        np.bool
-    ]  # idx of the array less than the from depth of the composite
-    idx_full: NDArray[np.bool]
-    idx_from = samplefrom > fr
-    idx_to = sampleto < to
-    idx_full = idx_from & idx_to
-    return idx_full
-
-
-def _boundary(
-    fr: NDArray, to: NDArray, samplefrom: NDArray, sampleto: NDArray
-) -> NDArray[np.bool]:
-    """
-    returns the index of the samples intersecting the boundary
-    """
-    # the first step is to do the basic check of the intervals
-    idx_from: NDArray[
-        np.bool
-    ]  # idx of the array less than the from depth of the composite
-    idx_to: NDArray[
-        np.bool
-    ]  # idx of the array less than the from depth of the composite
-    idx_partial: NDArray[np.bool]
-    idx_from = samplefrom <= to
-    idx_to = sampleto >= fr
-    idx_partial = idx_from & idx_to
-    return idx_partial
-
-
-def _contact(idx_partial, idx_enclosed):
-    return np.logical_xor(idx_partial, idx_enclosed)
-
-def _sample_weight():
-    pass
-
 def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArray, array: NDArray,method:str='soft') -> NDArray:
     """
     Simple function to composite drill hole data to a set of intervals:
@@ -98,6 +50,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         # extract the from and to of the desired interval
         fr = cfrom[i]
         to = cto[i]
+        length = to-fr
         # this is the fast and simple way 
         # to calculate if a sample interval is covered by 
         # a composite interval rather calculating each of the states of coverage.
@@ -109,13 +62,14 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         coverage[coverage<cutoff] = 0 # changing the 0 here 
         # the matrix multiply is quite slow when applying this to a very large array
         # in the case when there are no intersections we can speed up the calculation
-        # quite significantly by carrying on the calculation if there are any samples
+        # quite significantly by only carrying on the calculation if there are any samples
         # with a positive weight
         if np.any(coverage)>0:
             # we only calculate a length weighted average
             weights = coverage/sample_length
-            ## calculating the sample coverage is the sum of all the sample lenghts
-            total_coverage = np.sum(coverage)
+            ## calculating the sample coverage is the sum of all the sample lengths
+            total_coverage = np.clip(np.sum(coverage)/length,0,1)
+            
             # if the sample length is 0 or negative that will cause issues
             # use the validation index to set that weight to 0
             weights[idx_sample_fail] = 0
