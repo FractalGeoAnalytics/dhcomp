@@ -114,6 +114,8 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         if np.any(coverage)>0:
             # we only calculate a length weighted average
             weights = coverage/sample_length
+            ## calculating the sample coverage is the sum of all the sample lenghts
+            total_coverage = np.sum(coverage)
             # if the sample length is 0 or negative that will cause issues
             # use the validation index to set that weight to 0
             weights[idx_sample_fail] = 0
@@ -129,7 +131,8 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
             # and insert into the output
         else:
             accumulated_array = np.nan
+            total_coverage = 0
         output[i,:] = accumulated_array
-        sample_coverage[i] = coverage
+        sample_coverage[i] = total_coverage
 
     return output
