@@ -135,4 +135,4 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         output[i,:] = accumulated_array
         sample_coverage[i] = total_coverage
 
-    return output
+    return output, sample_coverage
