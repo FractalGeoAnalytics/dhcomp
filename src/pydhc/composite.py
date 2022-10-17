@@ -40,7 +40,10 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     sample_length = sampleto-samplefrom
     # validate sample length always positive
     # if it is 0 or negative this will cause issues with the weighted sum
-    idx_sample_fail = sample_length<=0
+    # also nan values are problematic and cause low averages when included
+    idx_sample_length = sample_length<=0
+    idx_sample_nan = np.isnan(array).ravel()
+    idx_sample_fail = idx_sample_length & idx_sample_nan
     method='soft'
     if method == 'soft':
         cutoff = 0
@@ -60,6 +63,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         # in this case we can have weights for a sample less than 1 and greater than 0
         # if we wanted the hard boundary case we would only accept weights of 1
         coverage[coverage<cutoff] = 0 # changing the 0 here 
+        coverage[idx_sample_nan] = 0 # manage the nan samples here
         # the matrix multiply is quite slow when applying this to a very large array
         # in the case when there are no intersections we can speed up the calculation
         # quite significantly by only carrying on the calculation if there are any samples
