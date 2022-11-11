@@ -42,7 +42,10 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     # if it is 0 or negative this will cause issues with the weighted sum
     # also nan values are problematic and cause low averages when included
     idx_sample_length = sample_length<=0
-    idx_sample_nan = np.isnan(array).ravel()
+    # we assume that the dimension of the array is 2d at the moment
+    # also if there are any nan values in any of the columns in the array
+    # we will class that entire row as being nan
+    idx_sample_nan = np.any(np.isnan(array),1).ravel()
     idx_sample_fail = idx_sample_length & idx_sample_nan
     method='soft'
     if method == 'soft':
