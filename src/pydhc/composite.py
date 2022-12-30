@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from typing import Union
 
 def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArray, array: NDArray,method:str='soft') -> NDArray:
     """
@@ -97,3 +98,44 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         sample_coverage[i] = total_coverage
 
     return output, sample_coverage
+
+def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:float=1,offset:float=0,drop_empty_intervals:bool=True, min_coverage:float=1.0):
+    """
+    Simplifies the interface to the composite function for soft boundaries and fixed interval lengths
+
+    Args:
+        interval (float): the composite length that you would like
+        samplefrom (NDArray): the from depth of the input array
+        sampleto (NDArray): the from depth of the input array
+        array (NDArray): the numpy array that you would like to have composited
+        offset (float): offsets the start point of the intervals which are assumed to start at 0
+    Returns:
+        composite array (NDArray): a weighted average of the input array 
+    Examples:
+    """
+    # create a set of from and to depths covering the samplefrom and to depths
+    min_depth:float = offset
+    max_depth:float = np.min(sampleto)
+    n_intervals:int = int(np.ceil(max_depth/interval))
+    from_depth:NDArray = np.linspace(min_depth,interval*n_intervals)
+    to_depth:NDArray = np.linspace(min_depth+interval,interval*(n_intervals+1))
+    # if we are dealing with a pd.DataFrame then we need to strip the column headers
+    isDF:bool = isinstance(array, pd.DataFrame)
+    if isDF:
+        clean_array:NDArray  = array.values
+    # when dealing with categorical data the question of how to get the correct intervals is interesting
+    # one possibility is to use dummy coding and calculate it that way
+    comp_array, coverage = composite(from_depth, to_depth, samplefrom=samplefrom, sampleto=sampleto, array=clean_array)
+    # of course you want the column headers back so we just add them back
+    if isDF:
+        comp_array = pd.DataFrame(comp_array, columns=array.columns)
+    # at this point we will drop the empty intervals if that is what is wanted
+    if drop_empty_intervals:
+        idx_empty = coverage>min_coverage
+        comp_array = comp_array[idx_empty]
+        coverage = coverage[idx_empty]
+    return comp_array, coverage
+
+def HardComposite():
+    pass
+

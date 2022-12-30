@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydhc"
-version = "0.1.11"
+version = "0.1.12"
 description = "Simple utility to composite drill hole data in python"
 authors = ["Ben <ben@fractalgeoanalytics.com>"]
 license = "MIT"

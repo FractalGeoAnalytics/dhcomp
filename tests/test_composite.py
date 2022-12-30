@@ -1,5 +1,5 @@
 import unittest
-from src.pydhc import composite
+from src.pydhc.composite import composite
 import unittest
 import numpy as np
 from numpy.typing import NDArray
@@ -14,7 +14,7 @@ class TestComposite(unittest.TestCase):
         cfr = np.arange(0,10,0.1)
         cto = cfr+0.1
         array = np.ones((cto.shape[0],1))
-        x  = composite(fr, to, cfr, cto, array)
+        x, _  = composite(fr, to, cfr, cto, array)
         y = np.ones((fr.shape[0],1))
         assert_array_max_ulp(x,y,10)
 
@@ -31,6 +31,35 @@ class TestComposite(unittest.TestCase):
         cto = np.arange(1)+1
         composite(fr, to, cfr, cto, np.ones((1, 1)))
 
+    def test_random_composite_lengths(self):
+        rng = np.random.default_rng(seed=42)
+        for i in range(100):
+            # create random length composite intervals
+            sample_lengths = rng.uniform(0.1, 1,10)
+            sum_lengths = np.cumsum(sample_lengths)
+            fr = sum_lengths[0:-1]
+            to = sum_lengths[1:]
+            cfr = np.arange(0,10,0.1)
+            cto = cfr+0.1
+            array = np.ones((cto.shape[0],1))
+            x, _  = composite(fr, to, cfr, cto, array)
+            y = np.ones((fr.shape[0],1))
+            assert_array_max_ulp(x,y,10)
+
+    def test_random_sample_lengths(self):
+        rng = np.random.default_rng(seed=42)
+        for i in range(100):
+            # create random length sample intervals
+            fr = np.arange(0, 10)
+            to = np.arange(1, 11)
+            sample_lengths = rng.uniform(0.01, 0.2,100)
+            sum_lengths = np.cumsum(sample_lengths)
+            cfr = sum_lengths[0:-1]
+            cto = sum_lengths[1:]
+            array = np.ones((cto.shape[0],1))
+            x, _  = composite(fr, to, cfr, cto, array)
+            y = np.ones((fr.shape[0],1))
+            assert_array_max_ulp(x,y,10)
 
 if __name__ == "__main__":
     unittest.main()
