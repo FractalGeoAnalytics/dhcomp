@@ -121,8 +121,11 @@ def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:fl
     to_depth:NDArray = np.linspace(min_depth+interval,interval*(n_intervals+1))
     # if we are dealing with a pd.DataFrame then we need to strip the column headers
     isDF:bool = isinstance(array, pd.DataFrame)
+    clean_array:NDArray
     if isDF:
-        clean_array:NDArray  = array.values
+        clean_array = array.values
+    else:
+        clean_array = array 
     # when dealing with categorical data the question of how to get the correct intervals is interesting
     # one possibility is to use dummy coding and calculate it that way
     comp_array, coverage = composite(from_depth, to_depth, samplefrom=samplefrom, sampleto=sampleto, array=clean_array)
