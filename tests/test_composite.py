@@ -1,5 +1,5 @@
 import unittest
-from src.pydhc.composite import composite
+from src.pydhc.composite import composite, SoftComposite
 import unittest
 import numpy as np
 from numpy.typing import NDArray
@@ -9,14 +9,16 @@ from numpy.testing import assert_array_max_ulp
 class TestComposite(unittest.TestCase):
 
     def test_ones(self):
-        fr = np.arange(0, 10)
-        to = np.arange(1, 11)
-        cfr = np.arange(0,10,0.1)
-        cto = cfr+0.1
-        array = np.ones((cto.shape[0],1))
-        x, _  = composite(fr, to, cfr, cto, array)
-        y = np.ones((fr.shape[0],1))
-        assert_array_max_ulp(x,y,10)
+        for i in range(1, 3):
+            cfrom = np.arange(0, 10)
+            cto = np.arange(1, 11)
+            samplefrom = np.arange(0,10,0.1)
+            sampleto = samplefrom+0.1
+            array = np.ones((samplefrom.shape[0],2,i))
+            x, _  = composite(cfrom, cto, samplefrom, sampleto, array)
+        
+            y = np.ones((cfrom.shape[0],2,i))
+            assert_array_max_ulp(x,y,10)
 
     def test_composite_from_to_shape_fail(self):
         fr = np.arange(0, 10)
@@ -60,6 +62,15 @@ class TestComposite(unittest.TestCase):
             x, _  = composite(fr, to, cfr, cto, array)
             y = np.ones((fr.shape[0],1))
             assert_array_max_ulp(x,y,10)
+    
+    def test_SoftComposite(self):
+        cfr = np.arange(0,10,0.1)
+        cto = cfr+0.1
+        dims = (10,1,2)
+        array = np.ones(dims)
+        depths,x,coverage = SoftComposite(samplefrom=cfr, sampleto=cto, array=array,interval=0.3, offset=0.5, drop_empty_intervals=True,min_coverage=0.1)
+        y = np.ones(dims)
+        assert_array_max_ulp(x,y,10)
 
 if __name__ == "__main__":
     unittest.main()

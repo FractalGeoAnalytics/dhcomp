@@ -28,8 +28,12 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     # all we are doing now is to loop over each of the from and to intervals
 
     n_composites: int = cfrom.shape[0]
-    n_columns: int = array.shape[1]
-    output: NDArray = np.zeros((n_composites, n_columns))*np.nan
+    n_columns: int = array.shape[1:]
+    if array.ndim == 2:
+        array_is_nd = False
+    else:
+        array_is_nd = True
+    output: NDArray = np.zeros((n_composites, *n_columns))*np.nan
     sample_coverage:NDArray = np.zeros((n_composites, 1))
     fr: float
     to: float
@@ -46,8 +50,10 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     # we assume that the dimension of the array is 2d at the moment
     # also if there are any nan values in any of the columns in the array
     # we will class that entire row as being nan
-    idx_sample_nan = np.any(np.isnan(array),1).ravel()
+    reduction_dimension = tuple(range(1,array.ndim))
+    idx_sample_nan = np.any(np.isnan(array),axis=reduction_dimension).ravel()
     idx_sample_fail = idx_sample_length & idx_sample_nan
+    
     method='soft'
     if method == 'soft':
         cutoff = 0
@@ -88,9 +94,12 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
             # we can speed up the calculation even more by selecting indicies 
             # from the array that we are going to multiply
             idx_inside = weight_array.ravel()>0
-            # then we sum the array 
-            accumulated_array = np.nansum(array[idx_inside,:]*weight_array[idx_inside],0)
-            # and insert into the output
+            # then we sum the array
+            # we need to use broadcasting if the array is greater than 2d 
+            if array_is_nd:
+                accumulated_array = np.nansum(array[idx_inside,:]*weight_array[idx_inside,None],axis=0,keepdims=True)
+            else:
+                accumulated_array = np.nansum(array[idx_inside,:]*weight_array[idx_inside,:],axis=0,keepdims=True)
         else:
             accumulated_array = np.nan
             total_coverage = 0
@@ -99,7 +108,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
 
     return output, sample_coverage
 
-def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:float=1,offset:float=0,drop_empty_intervals:bool=True, min_coverage:float=1.0):
+def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:float=1,offset:float=0,drop_empty_intervals:bool=True, min_coverage:float=0.1):
     """
     Simplifies the interface to the composite function for soft boundaries and fixed interval lengths
 
@@ -115,10 +124,10 @@ def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:fl
     """
     # create a set of from and to depths covering the samplefrom and to depths
     min_depth:float = offset
-    max_depth:float = np.min(sampleto)
+    max_depth:float = np.max(sampleto)
     n_intervals:int = int(np.ceil(max_depth/interval))
-    from_depth:NDArray = np.linspace(min_depth,interval*n_intervals)
-    to_depth:NDArray = np.linspace(min_depth+interval,interval*(n_intervals+1))
+    from_depth:NDArray = np.arange(min_depth,interval*n_intervals,interval)
+    to_depth:NDArray = np.arange(min_depth+interval,interval*(n_intervals+1),interval)
     # if we are dealing with a pd.DataFrame then we need to strip the column headers
     isDF:bool = isinstance(array, pd.DataFrame)
     clean_array:NDArray
@@ -133,11 +142,13 @@ def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:fl
     if isDF:
         comp_array = pd.DataFrame(comp_array, columns=array.columns)
     # at this point we will drop the empty intervals if that is what is wanted
+    depths = np.hstack([from_depth.reshape(-1,1), to_depth.reshape(-1,1)])
     if drop_empty_intervals:
-        idx_empty = coverage>min_coverage
-        comp_array = comp_array[idx_empty]
-        coverage = coverage[idx_empty]
-    return comp_array, coverage
+        idx_empty = coverage.ravel()>min_coverage
+        comp_array = comp_array[idx_empty,:]
+        coverage = coverage[idx_empty,:]
+        depths = depths[idx_empty,:]
+    return depths, comp_array, coverage
 
 def HardComposite():
     pass
