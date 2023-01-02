@@ -24,7 +24,7 @@ class TestComposite(unittest.TestCase):
         fr = np.arange(0, 10)
         to = np.arange(1, 10)
         with self.assertRaises(AssertionError):
-            composite(fr, to, 0, 1, np.ones((1, 1)))
+            composite(fr, to, np.zeros(1), np.ones(1), np.ones((1, 1)))
 
     def test_composite_from_to_shape(self):
         fr = np.arange(0, 10)
@@ -66,10 +66,12 @@ class TestComposite(unittest.TestCase):
     def test_SoftComposite(self):
         cfr = np.arange(0,10,0.1)
         cto = cfr+0.1
-        dims = (10,1,2)
+        dims = (cfr.shape[0],2,2)
         array = np.ones(dims)
-        depths,x,coverage = SoftComposite(samplefrom=cfr, sampleto=cto, array=array,interval=0.3, offset=0.5, drop_empty_intervals=True,min_coverage=0.1)
-        y = np.ones(dims)
+
+        depths,x,coverage = SoftComposite(samplefrom=cfr, sampleto=cto, array=array,interval=1, offset=0.5, drop_empty_intervals=True,min_coverage=0.1)
+
+        y = np.ones((depths.shape[0],*dims[1:]))
         assert_array_max_ulp(x,y,10)
 
 if __name__ == "__main__":

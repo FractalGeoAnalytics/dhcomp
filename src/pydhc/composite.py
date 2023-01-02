@@ -20,6 +20,11 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
 
     Examples:
     """
+    # reshape the from and to depths of everything to n,1
+    cfrom = cfrom.reshape(-1,1)
+    cto = cto.reshape(-1,1)
+    samplefrom = samplefrom.reshape(-1,1)
+    sampleto = sampleto.reshape(-1,1)
     # first step is to confirm that the input data is consistent
     assert cfrom.shape[0] == cto.shape[0], "Composite from to are not the same size"
 
@@ -46,7 +51,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
     # validate sample length always positive
     # if it is 0 or negative this will cause issues with the weighted sum
     # also nan values are problematic and cause low averages when included
-    idx_sample_length = sample_length<=0
+    idx_sample_length = sample_length.ravel()<=0
     # we assume that the dimension of the array is 2d at the moment
     # also if there are any nan values in any of the columns in the array
     # we will class that entire row as being nan
@@ -68,7 +73,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
         # to calculate if a sample interval is covered by 
         # a composite interval rather calculating each of the states of coverage.
         coverage = np.fmin(sampleto,to) - np.fmax(samplefrom,fr)
-        # coverage will return a negative value if the sample is not insite the composite interval
+        # coverage will return a negative value if the sample is not inside the composite interval
         # the soft boundary case is the simplest to calculate 
         # in this case we can have weights for a sample less than 1 and greater than 0
         # if we wanted the hard boundary case we would only accept weights of 1
@@ -108,7 +113,7 @@ def composite(cfrom: NDArray, cto: NDArray, samplefrom: NDArray, sampleto: NDArr
 
     return output, sample_coverage
 
-def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:float=1,offset:float=0,drop_empty_intervals:bool=True, min_coverage:float=0.1):
+def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:Union[NDArray,pd.DataFrame],interval:float=1,offset:float=0,drop_empty_intervals:bool=True, min_coverage:float=0.1):
     """
     Simplifies the interface to the composite function for soft boundaries and fixed interval lengths
 
@@ -126,8 +131,8 @@ def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:fl
     min_depth:float = offset
     max_depth:float = np.max(sampleto)
     n_intervals:int = int(np.ceil(max_depth/interval))
-    from_depth:NDArray = np.arange(min_depth,interval*n_intervals,interval)
-    to_depth:NDArray = np.arange(min_depth+interval,interval*(n_intervals+1),interval)
+    from_depth:NDArray = np.arange(min_depth,interval*n_intervals,interval).reshape(-1,1)
+    to_depth:NDArray = np.arange(min_depth+interval,interval*(n_intervals+1),interval).reshape(-1,1)
     # if we are dealing with a pd.DataFrame then we need to strip the column headers
     isDF:bool = isinstance(array, pd.DataFrame)
     clean_array:NDArray
@@ -142,7 +147,7 @@ def SoftComposite(samplefrom:NDArray, sampleto:NDArray,array:NDArray,interval:fl
     if isDF:
         comp_array = pd.DataFrame(comp_array, columns=array.columns)
     # at this point we will drop the empty intervals if that is what is wanted
-    depths = np.hstack([from_depth.reshape(-1,1), to_depth.reshape(-1,1)])
+    depths = np.hstack([from_depth, to_depth])
     if drop_empty_intervals:
         idx_empty = coverage.ravel()>min_coverage
         comp_array = comp_array[idx_empty,:]
