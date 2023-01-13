@@ -7,6 +7,6 @@ dhcomp is a MIT licenced open source one function utility that (currently) compo
 
 ## Installation
 Installation is simple
-```pip install git+https://github.com/FractalGeoAnalytics/dhcomp```
+```pip install dhcomp```
 
 ## Usage
