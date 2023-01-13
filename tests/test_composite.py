@@ -1,5 +1,5 @@
 import unittest
-from src.pydhc.composite import composite, SoftComposite
+from src.dhcomp.composite import composite, SoftComposite
 import unittest
 import numpy as np
 from numpy.typing import NDArray

@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "pydhc"
-version = "0.2.0"
+name = "dhcomp"
+version = "0.3.0"
 description = "Simple utility to composite drill hole data in python"
 authors = ["Ben <ben@fractalgeoanalytics.com>"]
 license = "MIT"
-
+readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.6"
 numpy = "^1.21"
