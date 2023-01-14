@@ -8,16 +8,18 @@ from numpy.testing import assert_array_max_ulp
 
 class TestComposite(unittest.TestCase):
     def test_ones(self):
-        for i in range(1, 3):
-            cfrom = np.arange(0, 10)
-            cto = np.arange(1, 11)
-            samplefrom = np.arange(0, 10, 0.1)
-            sampleto = samplefrom + 0.1
-            array = np.ones((samplefrom.shape[0], 2, i))
+        cfrom = np.arange(0, 10)
+        cto = np.arange(1, 11)
+        samplefrom = np.arange(0, 10, 0.1)
+        sampleto = samplefrom + 0.1
+        rows = samplefrom.shape[0]
+        for i in [(rows, 2), (rows, 2, 2)]:
+            array = np.ones(i)
             x, _ = composite(cfrom, cto, samplefrom, sampleto, array)
-
-            y = np.ones((cfrom.shape[0], 2, i))
-            assert_array_max_ulp(x, y, 10)
+            shape_comp = list(i)
+            shape_comp[0] = 10
+            y = np.ones(shape_comp)
+            assert_array_max_ulp(x, y)
 
     def test_composite_from_to_shape_fail(self):
         fr = np.arange(0, 10)
@@ -63,11 +65,11 @@ class TestComposite(unittest.TestCase):
             assert_array_max_ulp(x, y, 10)
 
     def test_SoftComposite(self):
-        cfr = np.arange(0, 10, 0.1)
+        cfr = np.arange(0, 10, 0.1).reshape(-1,1)
         cto = cfr + 0.1
-        dims = (cfr.shape[0], 2, 2)
+        dims = (cfr.shape[0], 2)
         array = np.ones(dims)
-
+        
         depths, x, coverage = SoftComposite(
             samplefrom=cfr,
             sampleto=cto,

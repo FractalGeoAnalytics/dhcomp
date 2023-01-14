@@ -61,10 +61,15 @@ def composite(
     coverage: float
 
     sample_length = sampleto - samplefrom
+    if array_is_nd:
+        sample_length = sample_length.reshape(-1,1,1)
     # validate sample length always positive
     # if it is 0 or negative this will cause issues with the weighted sum
     # also nan values are problematic and cause low averages when included
     idx_sample_length = sample_length <= 0
+    # we need to manage the dimension of this and change as dimension changes 
+    if array_is_nd:
+        idx_sample_length = idx_sample_length.reshape(-1,1,1) 
     # we assume that the dimension of the array is 2d at the moment
     # also if there are any nan values in any of the columns in the array
     # we will class that entire row as being nan
@@ -86,7 +91,10 @@ def composite(
         # a composite interval rather calculating each of the states of coverage.
         # to handle the case where we have missing samples we need to make coverage an array the
         # same size as the array of samples
-        coverage = np.fmin(sampleto, to) - np.fmax(samplefrom, fr)*expansion_array
+        coverage = (np.fmin(sampleto, to) - np.fmax(samplefrom, fr))
+        if array_is_nd:
+            coverage = coverage.reshape(-1,1,1)
+        coverage = coverage*expansion_array
         # coverage will return a negative value if the sample is not inside the composite interval
         # the soft boundary case is the simplest to calculate
         # in this case we can have weights for a sample less than 1 and greater than 0
@@ -115,16 +123,10 @@ def composite(
             idx_inside = np.any(weight_array > 0,1)
             # then we sum the array
             # we need to use broadcasting if the array is greater than 2d
-            if array_is_nd:
-                accumulated_array = np.nansum(
-                    array[idx_inside, :] * weight_array[idx_inside, None],
-                    axis=0,
-                    keepdims=True,
-                )
-            else:
-                ta = array[idx_inside].reshape(-1,*n_columns)
-                tw = weight_array[idx_inside].reshape(-1,*n_columns)
-                accumulated_array = np.nansum(ta* tw,axis=0,keepdims=True)
+
+            ta = array[idx_inside].reshape(-1,*n_columns)
+            tw = weight_array[idx_inside].reshape(-1,*n_columns)
+            accumulated_array = np.nansum(ta* tw,axis=0,keepdims=True)
             # to manage the correct nan propagation if the  entire composite is nan values
             # we are going to replace this interval and column with nan
             # if there are gaps we will ignore them for this calculation
