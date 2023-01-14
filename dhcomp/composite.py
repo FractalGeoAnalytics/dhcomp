@@ -48,8 +48,11 @@ def composite(
         array_is_nd = False
     else:
         array_is_nd = True
+    # pre-allocate the output arrays
     output: NDArray = np.zeros((n_composites, *n_columns)) * np.nan
-    sample_coverage: NDArray = np.zeros((n_composites, 1))
+    
+    sample_coverage: NDArray = np.zeros((n_composites, *n_columns))
+
     fr: float
     to: float
     accumulated_array: NDArray
@@ -61,14 +64,13 @@ def composite(
     # validate sample length always positive
     # if it is 0 or negative this will cause issues with the weighted sum
     # also nan values are problematic and cause low averages when included
-    idx_sample_length = sample_length.ravel() <= 0
+    idx_sample_length = sample_length <= 0
     # we assume that the dimension of the array is 2d at the moment
     # also if there are any nan values in any of the columns in the array
     # we will class that entire row as being nan
-    reduction_dimension = tuple(range(1, array.ndim))
-    idx_sample_nan = np.any(np.isnan(array), axis=reduction_dimension).ravel()
+    idx_sample_nan = np.isnan(array)
     idx_sample_fail = idx_sample_length & idx_sample_nan
-
+    expansion_array = np.ones((1, *n_columns))
     method = "soft"
     if method == "soft":
         cutoff = 0
@@ -82,7 +84,9 @@ def composite(
         # this is the fast and simple way
         # to calculate if a sample interval is covered by
         # a composite interval rather calculating each of the states of coverage.
-        coverage = np.fmin(sampleto, to) - np.fmax(samplefrom, fr)
+        # to handle the case where we have missing samples we need to make coverage an array the
+        # same size as the array of samples
+        coverage = np.fmin(sampleto, to) - np.fmax(samplefrom, fr)*expansion_array
         # coverage will return a negative value if the sample is not inside the composite interval
         # the soft boundary case is the simplest to calculate
         # in this case we can have weights for a sample less than 1 and greater than 0
@@ -97,18 +101,18 @@ def composite(
             # we only calculate a length weighted average
             weights = coverage / sample_length
             ## calculating the sample coverage is the sum of all the sample lengths
-            total_coverage = np.clip(np.sum(coverage) / length, 0, 1)
+            total_coverage = np.clip(np.sum(coverage,0) / length, 0, 1)
 
             # if the sample length is 0 or negative that will cause issues
             # use the validation index to set that weight to 0
             weights[idx_sample_fail] = 0
-            total_weight = np.sum(weights)
+            total_weight = np.sum(weights,0)
             # once we have an array of normalised weights
             # it is simple to multiple the sample array by the weights
-            weight_array = weights.reshape(-1, 1) / total_weight
+            weight_array = weights / total_weight
             # we can speed up the calculation even more by selecting indicies
             # from the array that we are going to multiply
-            idx_inside = weight_array.ravel() > 0
+            idx_inside = np.any(weight_array > 0,1)
             # then we sum the array
             # we need to use broadcasting if the array is greater than 2d
             if array_is_nd:
@@ -118,15 +122,20 @@ def composite(
                     keepdims=True,
                 )
             else:
-                accumulated_array = np.nansum(
-                    array[idx_inside, :] * weight_array[idx_inside, :],
-                    axis=0,
-                    keepdims=True,
-                )
+                ta = array[idx_inside].reshape(-1,*n_columns)
+                tw = weight_array[idx_inside].reshape(-1,*n_columns)
+                accumulated_array = np.nansum(ta* tw,axis=0,keepdims=True)
+            # to manage the correct nan propagation if the  entire composite is nan values
+            # we are going to replace this interval and column with nan
+            # if there are gaps we will ignore them for this calculation
+            idx_nan_section = np.isnan(ta).all(0)
+            
+            
+            accumulated_array[:,idx_nan_section] = np.nan
         else:
             accumulated_array = np.nan
             total_coverage = 0
-        output[i, :] = accumulated_array
+        output[i] = accumulated_array
         sample_coverage[i] = total_coverage
 
     return output, sample_coverage
@@ -164,13 +173,21 @@ def SoftComposite(
     to_depth: NDArray = np.arange(
         min_depth + interval, interval * (n_intervals + 1), interval
     ).reshape(-1, 1)
-    # if we are dealing with a pd.DataFrame then we need to strip the column headers
+
+    samplefrom = samplefrom.reshape(-1,1)
+    sampleto = sampleto.reshape(-1,1)
+
+    # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
     isDF: bool = isinstance(array, pd.DataFrame)
+    isSeries: bool = isinstance(array, pd.Series)
     clean_array: NDArray
-    if isDF:
+    if isDF or isSeries:
         clean_array = array.values
     else:
         clean_array = array
+    # if the array is 1d reshape it to 2d 
+    if clean_array.ndim ==1:
+        clean_array = clean_array.reshape(-1,1)
     # when dealing with categorical data the question of how to get the correct intervals is interesting
     # one possibility is to use dummy coding and calculate it that way
     comp_array, coverage = composite(
@@ -183,10 +200,12 @@ def SoftComposite(
     # of course you want the column headers back so we just add them back
     if isDF:
         comp_array = pd.DataFrame(comp_array, columns=array.columns)
+    elif isSeries:
+        comp_array = pd.Series(comp_array.ravel(),name=array.name)
     # at this point we will drop the empty intervals if that is what is wanted
     depths = np.hstack([from_depth, to_depth])
     if drop_empty_intervals:
-        idx_empty = coverage.ravel() > min_coverage
+        idx_empty = np.all(coverage > min_coverage,1)
         comp_array = comp_array[idx_empty, :]
         coverage = coverage[idx_empty, :]
         depths = depths[idx_empty, :]
