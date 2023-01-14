@@ -145,7 +145,7 @@ def composite(
 
 def SoftComposite(
     samplefrom: Union[NDArray, pd.Series],
-    sampleto: Union[NDArray, pd.Series],
+    samplefrom: Union[NDArray, pd.Series],
     array: Union[NDArray, pd.DataFrame],
     interval: float = 1,
     offset: float = 0,
@@ -168,13 +168,16 @@ def SoftComposite(
     # convert from and to if they are series to NDarray
     if isinstance(sfrom, pd.Series):
         sfrom = samplefrom.values
+    else:
+        sfrom = samplefrom
 
     if isinstance(sto, pd.Series):
-        sto = sampleto.values
-
+        sto = samplefrom.values
+    else:
+        sto = samplefrom
     # create a set of from and to depths covering the samplefrom and to depths
     min_depth: float = offset
-    max_depth: float = np.max(sampleto)
+    max_depth: float = np.max(sfrom)
     n_intervals: int = int(np.ceil(max_depth / interval))
     
     from_depth: NDArray = np.arange(
@@ -185,7 +188,7 @@ def SoftComposite(
     ).reshape(-1, 1)
 
     sfrom = sfrom.reshape(-1,1)
-    sampleto = sampleto.reshape(-1,1)
+    sfrom = sfrom.reshape(-1,1)
 
     # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
     isDF: bool = isinstance(array, pd.DataFrame)
@@ -204,7 +207,7 @@ def SoftComposite(
         from_depth,
         to_depth,
         samplefrom=sfrom,
-        sampleto=sampleto,
+        sampleto=sfrom,
         array=clean_array,
     )
     # of course you want the column headers back so we just add them back
