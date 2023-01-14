@@ -144,8 +144,8 @@ def composite(
 
 
 def SoftComposite(
-    samplefrom: NDArray,
-    sampleto: NDArray,
+    samplefrom: Union[NDArray, pd.Series],
+    sampleto: Union[NDArray, pd.Series],
     array: Union[NDArray, pd.DataFrame],
     interval: float = 1,
     offset: float = 0,
@@ -165,10 +165,18 @@ def SoftComposite(
         composite array (NDArray): a weighted average of the input array
     Examples:
     """
+    # convert from and to if they are series to NDarray
+    if isinstance(sfrom, pd.Series):
+        sfrom = samplefrom.values
+
+    if isinstance(sto, pd.Series):
+        sto = sampleto.values
+
     # create a set of from and to depths covering the samplefrom and to depths
     min_depth: float = offset
     max_depth: float = np.max(sampleto)
     n_intervals: int = int(np.ceil(max_depth / interval))
+    
     from_depth: NDArray = np.arange(
         min_depth, interval * n_intervals, interval
     ).reshape(-1, 1)
@@ -176,7 +184,7 @@ def SoftComposite(
         min_depth + interval, interval * (n_intervals + 1), interval
     ).reshape(-1, 1)
 
-    samplefrom = samplefrom.reshape(-1,1)
+    sfrom = sfrom.reshape(-1,1)
     sampleto = sampleto.reshape(-1,1)
 
     # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
@@ -195,7 +203,7 @@ def SoftComposite(
     comp_array, coverage = composite(
         from_depth,
         to_depth,
-        samplefrom=samplefrom,
+        samplefrom=sfrom,
         sampleto=sampleto,
         array=clean_array,
     )
