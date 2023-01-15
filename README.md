@@ -11,4 +11,4 @@ Installation
 
 ## Usage
 
-```
+https://www.fractalgeoanalytics.com/articles/2023-01-13-compositing-drill-hole-intervals/
