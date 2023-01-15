@@ -71,7 +71,7 @@ class TestComposite(unittest.TestCase):
         array = np.ones(dims)
         
         depths, x, coverage = SoftComposite(
-            sfrom=cfr,
+            samplefrom=cfr,
             sampleto=cto,
             array=array,
             interval=1,

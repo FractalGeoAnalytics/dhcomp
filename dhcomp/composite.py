@@ -145,7 +145,7 @@ def composite(
 
 def SoftComposite(
     samplefrom: Union[NDArray, pd.Series],
-    samplefrom: Union[NDArray, pd.Series],
+    sampleto: Union[NDArray, pd.Series],
     array: Union[NDArray, pd.DataFrame],
     interval: float = 1,
     offset: float = 0,
@@ -166,15 +166,17 @@ def SoftComposite(
     Examples:
     """
     # convert from and to if they are series to NDarray
-    if isinstance(sfrom, pd.Series):
+    sfrom:NDArray
+    sto:NDArray
+    if isinstance(samplefrom, pd.Series):
         sfrom = samplefrom.values
     else:
         sfrom = samplefrom
 
-    if isinstance(sto, pd.Series):
-        sto = samplefrom.values
+    if isinstance(sampleto, pd.Series):
+        sto = sampleto.values
     else:
-        sto = samplefrom
+        sto = sampleto
     # create a set of from and to depths covering the samplefrom and to depths
     min_depth: float = offset
     max_depth: float = np.max(sfrom)
@@ -188,7 +190,7 @@ def SoftComposite(
     ).reshape(-1, 1)
 
     sfrom = sfrom.reshape(-1,1)
-    sfrom = sfrom.reshape(-1,1)
+    sto= sto.reshape(-1,1)
 
     # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
     isDF: bool = isinstance(array, pd.DataFrame)
@@ -207,21 +209,22 @@ def SoftComposite(
         from_depth,
         to_depth,
         samplefrom=sfrom,
-        sampleto=sfrom,
+        sampleto=sto,
         array=clean_array,
     )
-    # of course you want the column headers back so we just add them back
-    if isDF:
-        comp_array = pd.DataFrame(comp_array, columns=array.columns)
-    elif isSeries:
-        comp_array = pd.Series(comp_array.ravel(),name=array.name)
-    # at this point we will drop the empty intervals if that is what is wanted
+
     depths = np.hstack([from_depth, to_depth])
     if drop_empty_intervals:
         idx_empty = np.all(coverage > min_coverage,1)
         comp_array = comp_array[idx_empty, :]
         coverage = coverage[idx_empty, :]
         depths = depths[idx_empty, :]
+    # of course you want the column headers back so we just add them back
+    if isDF:
+        comp_array = pd.DataFrame(comp_array, columns=array.columns)
+    elif isSeries:
+        comp_array = pd.Series(comp_array.ravel(),name=array.name)
+    # at this point we will drop the empty intervals if that is what is wanted
     return depths, comp_array, coverage
 
 
