@@ -4,6 +4,94 @@ from numpy.typing import NDArray
 from typing import Union
 
 
+def _greedy_composite(
+    depth_from: NDArray,
+    depth_to: NDArray,
+    composite_length: float,
+    direction: str = "forwards",
+) -> NDArray:
+    depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
+    maxit: int = len(depths)
+    """
+    greedy composite loops over each interval creating composites of length >= the target length
+    if the last sample is less or more than the target interval that is not taken into consideration
+    the flag backwards simply reverses the array calculates the composites then reverses the output 
+    to ensure that results are ordered correctly
+    """
+    if direction == "backwards":
+        depths = depths[::-1]
+    intervals: list[int] = []
+    current_interval = 0
+    intervals.append(current_interval)
+    tmp_from: float
+    tmp_to: float
+    tmp_len: float
+    i: int
+    for i in range(1, maxit):
+        tmp_from = depths[current_interval]
+        tmp_to = depths[i]
+        tmp_len = abs(tmp_to - tmp_from)
+        if tmp_len >= composite_length:
+            intervals.append(i)
+            current_interval = i
+    # check that the last interval is there and add it if missing
+    if intervals[-1] < maxit:
+        intervals.append(maxit - 1)
+    output: NDArray = depths[intervals]
+    # if we are going backwards flip the output the right way
+    if direction == "backwards":
+        output = output[::-1]
+    return output
+
+
+def _global_composite(
+    depth_from: NDArray, depth_to: NDArray, composite_length: float
+) -> NDArray:
+    """
+    compositing of drill hole intervals under the hard boundary condition
+    i.e. no samples can be split between.
+    this algorithm attempts to create a set of composites that are globally as
+    close to the desired composite length as possible this is done by using a graph search
+    algorithm provided by networkX
+    additional hueristics are used to keep the run time as short as possible in particular
+    if the composite interval is >= to the target interval only one additional sample is added
+    this is to prevent blow out in the number of connections bwteen intervals
+    """
+
+    G = nx.Graph()
+    depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
+    maxit: int = len(depths)
+    # create all the nodes
+    n: int
+    for n, _ in enumerate(depths):
+        G.add_node(n)
+    # loop over all nodes
+    i: int
+    j: int
+    n: int
+    stepstate: bool
+    from_depth: float
+    to_depth: float
+    # loop over each iterval starting at 0
+    for i in range(maxit):
+        from_depth = depths[i]
+        stepstate = False
+        # loop over the remaining intervals then when
+        # both conditions i.e. the composite length is >= target length and
+        # we have included the next composite we then move to the next interval
+        for n, j in enumerate(range(i + 1, maxit)):
+            to_depth = depths[j]
+            weight = np.abs(composite_length - (to_depth - from_depth))
+            G.add_edge(i, j, weight=weight, length=to_depth - from_depth)
+            if (to_depth - from_depth) > composite_length:
+                stepstate = True
+            if stepstate and (n > 1):
+                break
+    pth = nx.shortest_path(G, source=0, target=maxit - 1, weight="weight")
+
+    return depths[pth]
+
+
 def composite(
     cfrom: NDArray,
     cto: NDArray,
@@ -50,7 +138,7 @@ def composite(
         array_is_nd = True
     # pre-allocate the output arrays
     output: NDArray = np.zeros((n_composites, *n_columns)) * np.nan
-    
+
     sample_coverage: NDArray = np.zeros((n_composites, *n_columns))
 
     fr: float
@@ -62,14 +150,14 @@ def composite(
 
     sample_length = sampleto - samplefrom
     if array_is_nd:
-        sample_length = sample_length.reshape(-1,1,1)
+        sample_length = sample_length.reshape(-1, 1, 1)
     # validate sample length always positive
     # if it is 0 or negative this will cause issues with the weighted sum
     # also nan values are problematic and cause low averages when included
     idx_sample_length = sample_length <= 0
-    # we need to manage the dimension of this and change as dimension changes 
+    # we need to manage the dimension of this and change as dimension changes
     if array_is_nd:
-        idx_sample_length = idx_sample_length.reshape(-1,1,1) 
+        idx_sample_length = idx_sample_length.reshape(-1, 1, 1)
     # we assume that the dimension of the array is 2d at the moment
     # also if there are any nan values in any of the columns in the array
     # we will class that entire row as being nan
@@ -91,10 +179,10 @@ def composite(
         # a composite interval rather calculating each of the states of coverage.
         # to handle the case where we have missing samples we need to make coverage an array the
         # same size as the array of samples
-        coverage = (np.fmin(sampleto, to) - np.fmax(samplefrom, fr))
+        coverage = np.fmin(sampleto, to) - np.fmax(samplefrom, fr)
         if array_is_nd:
-            coverage = coverage.reshape(-1,1,1)
-        coverage = coverage*expansion_array
+            coverage = coverage.reshape(-1, 1, 1)
+        coverage = coverage * expansion_array
         # coverage will return a negative value if the sample is not inside the composite interval
         # the soft boundary case is the simplest to calculate
         # in this case we can have weights for a sample less than 1 and greater than 0
@@ -109,31 +197,30 @@ def composite(
             # we only calculate a length weighted average
             weights = coverage / sample_length
             ## calculating the sample coverage is the sum of all the sample lengths
-            total_coverage = np.clip(np.sum(coverage,0) / length, 0, 1)
+            total_coverage = np.clip(np.sum(coverage, 0) / length, 0, 1)
 
             # if the sample length is 0 or negative that will cause issues
             # use the validation index to set that weight to 0
             weights[idx_sample_fail] = 0
-            total_weight = np.sum(weights,0)
+            total_weight = np.sum(weights, 0)
             # once we have an array of normalised weights
             # it is simple to multiple the sample array by the weights
             weight_array = weights / total_weight
             # we can speed up the calculation even more by selecting indicies
             # from the array that we are going to multiply
-            idx_inside = np.any(weight_array > 0,1)
+            idx_inside = np.any(weight_array > 0, 1)
             # then we sum the array
             # we need to use broadcasting if the array is greater than 2d
 
-            ta = array[idx_inside].reshape(-1,*n_columns)
-            tw = weight_array[idx_inside].reshape(-1,*n_columns)
-            accumulated_array = np.nansum(ta* tw,axis=0,keepdims=True)
+            ta = array[idx_inside].reshape(-1, *n_columns)
+            tw = weight_array[idx_inside].reshape(-1, *n_columns)
+            accumulated_array = np.nansum(ta * tw, axis=0, keepdims=True)
             # to manage the correct nan propagation if the  entire composite is nan values
             # we are going to replace this interval and column with nan
             # if there are gaps we will ignore them for this calculation
             idx_nan_section = np.isnan(ta).all(0)
-            
-            
-            accumulated_array[:,idx_nan_section] = np.nan
+
+            accumulated_array[:, idx_nan_section] = np.nan
         else:
             accumulated_array = np.nan
             total_coverage = 0
@@ -166,8 +253,8 @@ def SoftComposite(
     Examples:
     """
     # convert from and to if they are series to NDarray
-    sfrom:NDArray
-    sto:NDArray
+    sfrom: NDArray
+    sto: NDArray
     if isinstance(samplefrom, pd.Series):
         sfrom = samplefrom.values
     else:
@@ -181,7 +268,7 @@ def SoftComposite(
     min_depth: float = offset
     max_depth: float = np.max(sfrom)
     n_intervals: int = int(np.ceil(max_depth / interval))
-    
+
     from_depth: NDArray = np.arange(
         min_depth, interval * n_intervals, interval
     ).reshape(-1, 1)
@@ -189,8 +276,8 @@ def SoftComposite(
         min_depth + interval, interval * (n_intervals + 1), interval
     ).reshape(-1, 1)
 
-    sfrom = sfrom.reshape(-1,1)
-    sto= sto.reshape(-1,1)
+    sfrom = sfrom.reshape(-1, 1)
+    sto = sto.reshape(-1, 1)
 
     # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
     isDF: bool = isinstance(array, pd.DataFrame)
@@ -200,9 +287,9 @@ def SoftComposite(
         clean_array = array.values
     else:
         clean_array = array
-    # if the array is 1d reshape it to 2d 
-    if clean_array.ndim ==1:
-        clean_array = clean_array.reshape(-1,1)
+    # if the array is 1d reshape it to 2d
+    if clean_array.ndim == 1:
+        clean_array = clean_array.reshape(-1, 1)
     # when dealing with categorical data the question of how to get the correct intervals is interesting
     # one possibility is to use dummy coding and calculate it that way
     comp_array, coverage = composite(
@@ -215,7 +302,7 @@ def SoftComposite(
 
     depths = np.hstack([from_depth, to_depth])
     if drop_empty_intervals:
-        idx_empty = np.all(coverage > min_coverage,1)
+        idx_empty = np.all(coverage > min_coverage, 1)
         comp_array = comp_array[idx_empty, :]
         coverage = coverage[idx_empty, :]
         depths = depths[idx_empty, :]
@@ -223,7 +310,7 @@ def SoftComposite(
     if isDF:
         comp_array = pd.DataFrame(comp_array, columns=array.columns)
     elif isSeries:
-        comp_array = pd.Series(comp_array.ravel(),name=array.name)
+        comp_array = pd.Series(comp_array.ravel(), name=array.name)
     # at this point we will drop the empty intervals if that is what is wanted
     return depths, comp_array, coverage
 
