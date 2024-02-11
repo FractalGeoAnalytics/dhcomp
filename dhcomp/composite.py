@@ -402,7 +402,7 @@ def HardComposite(
         raise ValueError(f'{method} must be "greedy" or "global"')
     compositefrom, compositeto = _convert_intervals_to_from_to(intervals)
     comp_array, coverage = composite(
-        compositefrom, compositeto, samplefrom, sampleto, array, method="hard"
+        compositefrom, compositeto, samplefrom, sampleto, array, method="soft"
     )
     depths = np.hstack([compositefrom, compositeto])
     if drop_empty_intervals:
