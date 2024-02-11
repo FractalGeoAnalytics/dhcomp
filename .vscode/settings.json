@@ -8,5 +8,6 @@
         "./tests",
         "-p",
         "test_*.py"
-    ]
+    ],
+    "python.REPL.enableREPLSmartSend": false
 }
