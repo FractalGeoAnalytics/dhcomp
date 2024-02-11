@@ -397,7 +397,7 @@ def HardComposite(
     if method == "greedy":
         intervals = _greedy_composite(sfrom, sto, interval, direction)
     elif method == "global":
-        intervals = _global_composite(sfrom, sto, interval, direction)
+        intervals = _global_composite(sfrom, sto, interval)
     else:
         raise ValueError(f'{method} must be "greedy" or "global"')
     compositefrom, compositeto = _convert_intervals_to_from_to(intervals)

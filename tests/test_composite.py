@@ -137,6 +137,44 @@ class TestComposite(unittest.TestCase):
         y = np.ones((depths.shape[0], *dims[1:]))
         assert_array_max_ulp(x, y, 10)
 
+    def test_HardComposite_greedy_backward(self):
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+
+        depths, x, coverage = HardComposite(
+            samplefrom=cfr,
+            sampleto=cto,
+            array=array,
+            interval=1,
+            drop_empty_intervals=True,
+            direction="backwards",
+            min_coverage=0.1,
+        )
+
+        y = np.ones((depths.shape[0], *dims[1:]))
+        assert_array_max_ulp(x, y, 10)
+
+    def test_HardComposite_global(self):
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+
+        depths, x, coverage = HardComposite(
+            samplefrom=cfr,
+            sampleto=cto,
+            array=array,
+            interval=1,
+            drop_empty_intervals=True,
+            method="global",
+            min_coverage=0.1,
+        )
+
+        y = np.ones((depths.shape[0], *dims[1:]))
+        assert_array_max_ulp(x, y, 10)
+
 
 if __name__ == "__main__":
     unittest.main()
