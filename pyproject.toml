@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dhcomp"
-version = "0.4.3"
+version = "0.4.4"
 description = "Simple utility to composite drill hole data in python"
 authors = ["Ben <ben@fractalgeoanalytics.com>"]
 license = "MIT"
