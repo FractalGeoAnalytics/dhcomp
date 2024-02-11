@@ -43,7 +43,7 @@ def _greedy_composite(
             intervals.append(i)
             current_interval = i
     # check that the last interval is there and add it if missing
-    if intervals[-1] < maxit:
+    if depths[intervals[-1]] != depths[maxit - 1]:
         intervals.append(maxit - 1)
     output: NDArray = depths[intervals]
     # if we are going backwards flip the output the right way
@@ -73,7 +73,7 @@ def _global_composite(
     Examples:
     """
 
-    G = nx.Graph()
+    G = nx.DiGraph()
     depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
     maxit: int = len(depths)
     # create all the nodes
@@ -111,8 +111,8 @@ def _convert_intervals_to_from_to(intervals: NDArray) -> NDArray:
     """
     converts to intervals to from and to
     """
-    composite_from: NDArray = intervals[0:-1]
-    composite_to: NDArray = intervals[1:]
+    composite_from: NDArray = intervals[0:-1].reshape(-1, 1)
+    composite_to: NDArray = intervals[1:].reshape(-1, 1)
 
     return composite_from, composite_to
 
