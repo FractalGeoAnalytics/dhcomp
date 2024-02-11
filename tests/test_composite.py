@@ -1,9 +1,15 @@
 import unittest
-from dhcomp.composite import composite, SoftComposite
+from dhcomp.composite import (
+    composite,
+    SoftComposite,
+    _greedy_composite,
+    _global_composite,
+    HardComposite,
+)
 import unittest
 import numpy as np
 from numpy.typing import NDArray
-from numpy.testing import assert_array_max_ulp
+from numpy.testing import assert_array_max_ulp, assert_array_equal
 
 
 class TestComposite(unittest.TestCase):
@@ -65,17 +71,65 @@ class TestComposite(unittest.TestCase):
             assert_array_max_ulp(x, y, 10)
 
     def test_SoftComposite(self):
-        cfr = np.arange(0, 10, 0.1).reshape(-1,1)
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
         cto = cfr + 0.1
         dims = (cfr.shape[0], 2)
         array = np.ones(dims)
-        
+
         depths, x, coverage = SoftComposite(
             samplefrom=cfr,
             sampleto=cto,
             array=array,
             interval=1,
             offset=0.5,
+            drop_empty_intervals=True,
+            min_coverage=0.1,
+        )
+
+        y = np.ones((depths.shape[0], *dims[1:]))
+        assert_array_max_ulp(x, y, 10)
+
+    def test_greedy_forward_divisible(self):
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        comps = _greedy_composite(cfr, cto, 2.0, "forwards")
+        assert_array_equal(comps, [0, 2, 4, 6, 8, 10])
+
+    def test_greedy_backward_divisible(self):
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        comps = _greedy_composite(cfr, cto, 2.0, "backwards")
+        assert_array_equal(comps, [0, 2, 4, 6, 8, 10])
+
+    def test_greedy_forward_with_short_sample(self):
+        cfr = np.arange(0, 11, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        comps = _greedy_composite(cfr, cto, 2.0, "forwards")
+        assert_array_equal(comps, [0, 2, 4, 6, 8, 10, 11])
+
+    def test_greedy_backward_with_short_sample(self):
+        cfr = np.arange(0, 11, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        comps = _greedy_composite(cfr, cto, 2.0, "backwards")
+        assert_array_equal(comps, [0, 1, 3, 5, 7, 9, 11])
+
+    def test_global_divisible(self):
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        comps = _global_composite(cfr, cto, 2.0)
+        assert_array_equal(comps, [0, 2, 4, 6, 8, 10])
+
+    def test_HardComposite(self):
+        cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+
+        depths, x, coverage = HardComposite(
+            samplefrom=cfr,
+            sampleto=cto,
+            array=array,
+            interval=1,
             drop_empty_intervals=True,
             min_coverage=0.1,
         )

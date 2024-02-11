@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 from typing import Union
+import networkx as nx
 
 
 def _greedy_composite(
@@ -10,14 +11,21 @@ def _greedy_composite(
     composite_length: float,
     direction: str = "forwards",
 ) -> NDArray:
-    depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
-    maxit: int = len(depths)
     """
     greedy composite loops over each interval creating composites of length >= the target length
     if the last sample is less or more than the target interval that is not taken into consideration
-    the flag backwards simply reverses the array calculates the composites then reverses the output 
+    the flag backwards simply reverses the array calculates the composites then reverses the output
     to ensure that results are ordered correctly
+    Args:
+        depth_from (NDArray): the from depths
+        depth_to (NDArray): the to depths
+        composite_length (float): the target interval depth
+    Returns:
+        NDArray: of intervals representing the composite intervals
+    Examples:
     """
+    depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
+    maxit: int = len(depths)
     if direction == "backwards":
         depths = depths[::-1]
     intervals: list[int] = []
@@ -56,6 +64,13 @@ def _global_composite(
     additional hueristics are used to keep the run time as short as possible in particular
     if the composite interval is >= to the target interval only one additional sample is added
     this is to prevent blow out in the number of connections bwteen intervals
+    Args:
+        depth_from (NDArray): the from depths
+        depth_to (NDArray): the to depths
+        composite_length (float): the target interval depth
+    Returns:
+        NDArray: of intervals representing the composite intervals
+    Examples:
     """
 
     G = nx.Graph()
@@ -92,6 +107,16 @@ def _global_composite(
     return depths[pth]
 
 
+def _convert_intervals_to_from_to(intervals: NDArray) -> NDArray:
+    """
+    converts to intervals to from and to
+    """
+    composite_from: NDArray = intervals[0:-1]
+    composite_to: NDArray = intervals[1:]
+
+    return composite_from, composite_to
+
+
 def composite(
     cfrom: NDArray,
     cto: NDArray,
@@ -113,7 +138,7 @@ def composite(
         sampleto (NDArray): the from depth of the input array
         array (NDArray): the numpy array that you would like to have composited
     Returns:
-
+        NDArray: with rows representing composites intervals and columns the input data
     Examples:
     """
     # reshape the from and to depths of everything to n,1
@@ -164,7 +189,6 @@ def composite(
     idx_sample_nan = np.isnan(array)
     idx_sample_fail = idx_sample_length & idx_sample_nan
     expansion_array = np.ones((1, *n_columns))
-    method = "soft"
     if method == "soft":
         cutoff = 0
     else:
@@ -298,6 +322,7 @@ def SoftComposite(
         samplefrom=sfrom,
         sampleto=sto,
         array=clean_array,
+        method="soft",
     )
 
     depths = np.hstack([from_depth, to_depth])
@@ -315,5 +340,79 @@ def SoftComposite(
     return depths, comp_array, coverage
 
 
-def HardComposite():
-    pass
+def HardComposite(
+    samplefrom: Union[NDArray, pd.Series],
+    sampleto: Union[NDArray, pd.Series],
+    array: Union[NDArray, pd.DataFrame],
+    interval: float = 1,
+    method: str = "greedy",
+    direction: str = "forwards",
+    drop_empty_intervals: bool = True,
+    min_coverage: float = 0.1,
+):
+    """
+    Simplifies the interface to the composite function for hard boundaries which is the case
+    where aggregate intervals must not cross pre-existing boundaries
+
+    Args:
+        interval (float): the composite length that you would like
+        samplefrom (NDArray): the from depth of the input array
+        sampleto (NDArray): the from depth of the input array
+        array (NDArray): the numpy array that you would like to have composited
+        offset (float): offsets the start point of the intervals which are assumed to start at 0
+        method (str): choice of method options are 'greedy' and 'global'
+        direction (str): defaults to 'forward' the direction that the greedy algorithm runs options are 'forward' and 'backward'
+    Returns:
+        composite array (NDArray): a weighted average of the input array composited to the target length
+    Examples:
+    """
+    # convert from and to if they are series to NDarray
+    sfrom: NDArray
+    sto: NDArray
+    if isinstance(samplefrom, pd.Series):
+        sfrom = samplefrom.values
+    else:
+        sfrom = samplefrom
+
+    if isinstance(sampleto, pd.Series):
+        sto = sampleto.values
+    else:
+        sto = sampleto
+
+    # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
+    isDF: bool = isinstance(array, pd.DataFrame)
+    isSeries: bool = isinstance(array, pd.Series)
+    clean_array: NDArray
+    if isDF or isSeries:
+        clean_array = array.values
+    else:
+        clean_array = array
+    # if the array is 1d reshape it to 2d
+    if clean_array.ndim == 1:
+        clean_array = clean_array.reshape(-1, 1)
+    # when dealing with categorical data the question of how to get the correct intervals is interesting
+    # one possibility is to use dummy coding and calculate it that way
+
+    # create a set of from and to depths covering the samplefrom and to depths
+    if method == "greedy":
+        intervals = _greedy_composite(sfrom, sto, interval, direction)
+    elif method == "global":
+        intervals = _global_composite(sfrom, sto, interval, direction)
+    else:
+        raise ValueError(f'{method} must be "greedy" or "global"')
+    compositefrom, compositeto = _convert_intervals_to_from_to(intervals)
+    comp_array, coverage = composite(
+        compositefrom, compositeto, samplefrom, sampleto, array, method="hard"
+    )
+    depths = np.hstack([compositefrom, compositeto])
+    if drop_empty_intervals:
+        idx_empty = np.all(coverage > min_coverage, 1)
+        comp_array = comp_array[idx_empty, :]
+        coverage = coverage[idx_empty, :]
+        depths = depths[idx_empty, :]
+    # of course you want the column headers back so we just add them back
+    if isDF:
+        comp_array = pd.DataFrame(comp_array, columns=array.columns)
+    elif isSeries:
+        comp_array = pd.Series(comp_array.ravel(), name=array.name)
+    return depths, comp_array, coverage
