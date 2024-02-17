@@ -137,6 +137,25 @@ class TestComposite(unittest.TestCase):
         y = np.ones((depths.shape[0], *dims[1:]))
         assert_array_max_ulp(x, y, 10)
 
+    def test_HardComposite_greedy_minlength(self):
+        cfr = np.arange(0, 11, 0.1).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+        min_length = 2
+        depths, x, coverage = HardComposite(
+            samplefrom=cfr,
+            sampleto=cto,
+            array=array,
+            interval=2,
+            drop_empty_intervals=True,
+            min_coverage=0.1,
+            min_length=min_length,
+        )
+
+        udepths = np.unique(depths)
+        assert np.all(np.diff(udepths) >= min_length)
+
     def test_HardComposite_greedy_backward(self):
         cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
         cto = cfr + 0.1
@@ -174,6 +193,87 @@ class TestComposite(unittest.TestCase):
 
         y = np.ones((depths.shape[0], *dims[1:]))
         assert_array_max_ulp(x, y, 10)
+
+    def test_HardComposite_global_minlength_check(self):
+        cfr = np.arange(0, 10, 0.3).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+
+        depths, x, coverage = HardComposite(
+            samplefrom=cfr,
+            sampleto=cto,
+            array=array,
+            interval=1,
+            drop_empty_intervals=True,
+            method="global",
+            min_coverage=0.1,
+            min_length=1,
+        )
+
+        udepths = np.unique(depths)
+        assert np.all(np.diff(udepths) >= 1)
+
+    def test_HardComposite_global_minlength_0(self):
+        cfr = np.arange(0, 10, 0.3).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+        min_length = 0
+        depths, x, coverage = HardComposite(
+            samplefrom=cfr,
+            sampleto=cto,
+            array=array,
+            interval=1,
+            drop_empty_intervals=True,
+            method="global",
+            min_coverage=0.1,
+            min_length=0,
+        )
+
+        udepths = np.unique(depths)
+        assert np.all(np.diff(udepths) >= min_length)
+
+    def test_HardComposite_global_fuzz(self):
+
+        rng = np.random.default_rng(seed=42)
+        for i in range(1000):
+            # create random length composite intervals
+            sample_lengths = rng.uniform(0.1, 1, 10)
+            sum_lengths = np.cumsum(sample_lengths)
+            fr = sum_lengths[0:-1]
+            to = sum_lengths[1:]
+            array = np.ones((to.shape[0], 1))
+            min_length = 1
+            depths, x, coverage = HardComposite(
+                samplefrom=fr,
+                sampleto=to,
+                array=array,
+                interval=1,
+                drop_empty_intervals=True,
+                method="global",
+                min_coverage=0.1,
+                min_length=min_length,
+            )
+            udepths = np.unique(depths)
+            assert np.all(np.diff(udepths) >= min_length)
+
+    def test_HardComposite_global_min_length_validation(self):
+        cfr = np.arange(0, 10, 0.3).reshape(-1, 1)
+        cto = cfr + 0.1
+        dims = (cfr.shape[0], 2)
+        array = np.ones(dims)
+        with self.assertRaises(ValueError) as context:
+            depths, x, coverage = HardComposite(
+                samplefrom=cfr,
+                sampleto=cto,
+                array=array,
+                interval=1,
+                drop_empty_intervals=True,
+                method="global",
+                min_coverage=0.1,
+                min_length=2,
+            )
 
 
 if __name__ == "__main__":

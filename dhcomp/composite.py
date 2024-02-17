@@ -10,6 +10,7 @@ def _greedy_composite(
     depth_to: NDArray,
     composite_length: float,
     direction: str = "forwards",
+    min_length: float = 0,
 ) -> NDArray:
     """
     greedy composite loops over each interval creating composites of length >= the target length
@@ -45,7 +46,14 @@ def _greedy_composite(
     # check that the last interval is there and add it if missing
     if depths[intervals[-1]] != depths[maxit - 1]:
         intervals.append(maxit - 1)
+
     output: NDArray = depths[intervals]
+    # check all the intervals are > than the min_length
+    # if they are smaller than the min_length then append them to
+    # the previous sample
+    if np.any(output < min_length):
+        pos_short = np.where(output)[0]
+        output = np.delete(output, pos_short - 1)
     # if we are going backwards flip the output the right way
     if direction == "backwards":
         output = output[::-1]
@@ -53,7 +61,10 @@ def _greedy_composite(
 
 
 def _global_composite(
-    depth_from: NDArray, depth_to: NDArray, composite_length: float
+    depth_from: NDArray,
+    depth_to: NDArray,
+    composite_length: float,
+    min_length: float = 0,
 ) -> NDArray:
     """
     compositing of drill hole intervals under the hard boundary condition
@@ -68,6 +79,7 @@ def _global_composite(
         depth_from (NDArray): the from depths
         depth_to (NDArray): the to depths
         composite_length (float): the target interval depth
+        min_length (float): minimum interval length
     Returns:
         NDArray: of intervals representing the composite intervals
     Examples:
@@ -87,6 +99,7 @@ def _global_composite(
     stepstate: bool
     from_depth: float
     to_depth: float
+    interval_length: float
     # loop over each iterval starting at 0
     for i in range(maxit):
         from_depth = depths[i]
@@ -96,12 +109,15 @@ def _global_composite(
         # we have included the next composite we then move to the next interval
         for n, j in enumerate(range(i + 1, maxit)):
             to_depth = depths[j]
-            weight = np.abs(composite_length - (to_depth - from_depth))
-            G.add_edge(i, j, weight=weight, length=to_depth - from_depth)
+            interval_length = to_depth - from_depth
+            weight = np.abs(composite_length - interval_length)
+            if interval_length >= min_length:
+                G.add_edge(i, j, weight=weight, length=to_depth - from_depth)
             if (to_depth - from_depth) > composite_length:
                 stepstate = True
-            if stepstate and (n > 1):
+            if stepstate and (interval_length >= interval_length * 3):
                 break
+
     pth = nx.shortest_path(G, source=0, target=maxit - 1, weight="weight")
 
     return depths[pth]
@@ -349,6 +365,7 @@ def HardComposite(
     direction: str = "forwards",
     drop_empty_intervals: bool = True,
     min_coverage: float = 0.1,
+    min_length: float = 0,
 ):
     """
     Simplifies the interface to the composite function for hard boundaries which is the case
@@ -359,9 +376,11 @@ def HardComposite(
         samplefrom (NDArray): the from depth of the input array
         sampleto (NDArray): the from depth of the input array
         array (NDArray): the numpy array that you would like to have composited
+        min_length (float): minimum interval length
         offset (float): offsets the start point of the intervals which are assumed to start at 0
         method (str): choice of method options are 'greedy' and 'global'
         direction (str): defaults to 'forward' the direction that the greedy algorithm runs options are 'forward' and 'backward'
+
     Returns:
         composite array (NDArray): a weighted average of the input array composited to the target length
     Examples:
@@ -379,6 +398,10 @@ def HardComposite(
     else:
         sto = sampleto
 
+    if min_length > interval:
+        raise ValueError(
+            f"minimum_length {min_length} is > interval {interval} minimum length must be <= interval length"
+        )
     # if we are dealing with a pd.DataFrame or Series then we need to strip the column headers
     isDF: bool = isinstance(array, pd.DataFrame)
     isSeries: bool = isinstance(array, pd.Series)
@@ -395,9 +418,9 @@ def HardComposite(
 
     # create a set of from and to depths covering the samplefrom and to depths
     if method == "greedy":
-        intervals = _greedy_composite(sfrom, sto, interval, direction)
+        intervals = _greedy_composite(sfrom, sto, interval, direction, min_length)
     elif method == "global":
-        intervals = _global_composite(sfrom, sto, interval)
+        intervals = _global_composite(sfrom, sto, interval, min_length)
     else:
         raise ValueError(f'{method} must be "greedy" or "global"')
     compositefrom, compositeto = _convert_intervals_to_from_to(intervals)
