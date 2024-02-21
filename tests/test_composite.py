@@ -92,31 +92,37 @@ class TestComposite(unittest.TestCase):
     def test_greedy_forward_divisible(self):
         cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
         cto = cfr + 0.1
-        comps = _greedy_composite(cfr, cto, 2.0, "forwards")
+        depths = np.unique(np.concatenate([cfr, cto]))
+        comps = _greedy_composite(depths, 2.0, "forwards")
         assert_array_equal(comps, [0, 2, 4, 6, 8, 10])
 
     def test_greedy_backward_divisible(self):
         cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
         cto = cfr + 0.1
-        comps = _greedy_composite(cfr, cto, 2.0, "backwards")
+        depths = np.unique(np.concatenate([cfr, cto]))
+        comps = _greedy_composite(depths, 2.0, "backwards", min_length=0)
         assert_array_equal(comps, [0, 2, 4, 6, 8, 10])
 
     def test_greedy_forward_with_short_sample(self):
-        cfr = np.arange(0, 11, 0.1).reshape(-1, 1)
-        cto = cfr + 0.1
-        comps = _greedy_composite(cfr, cto, 2.0, "forwards")
+        depth_from = np.arange(0, 11, 0.1).reshape(-1, 1)
+        depth_to = depth_from + 0.1
+        composite_length = 2
+        depths = np.unique(np.concatenate([depth_from, depth_to]))
+        comps = _greedy_composite(depths, composite_length, "forwards")
         assert_array_equal(comps, [0, 2, 4, 6, 8, 10, 11])
 
     def test_greedy_backward_with_short_sample(self):
         cfr = np.arange(0, 11, 0.1).reshape(-1, 1)
         cto = cfr + 0.1
-        comps = _greedy_composite(cfr, cto, 2.0, "backwards")
+        depths = np.unique(np.concatenate([cfr, cto]))
+        comps = _greedy_composite(depths, 2.0, "backwards")
         assert_array_equal(comps, [0, 1, 3, 5, 7, 9, 11])
 
     def test_global_divisible(self):
         cfr = np.arange(0, 10, 0.1).reshape(-1, 1)
         cto = cfr + 0.1
-        comps = _global_composite(cfr, cto, 2.0)
+        depths = np.unique(np.concatenate([cfr, cto]))
+        comps = _global_composite(depths, 2.0)
         assert_array_equal(comps, [0, 2, 4, 6, 8, 10])
 
     def test_HardComposite(self):

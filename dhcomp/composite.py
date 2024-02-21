@@ -6,8 +6,7 @@ import networkx as nx
 
 
 def _greedy_composite(
-    depth_from: NDArray,
-    depth_to: NDArray,
+    depths: NDArray,
     composite_length: float,
     direction: str = "forwards",
     min_length: float = 0,
@@ -25,7 +24,6 @@ def _greedy_composite(
         NDArray: of intervals representing the composite intervals
     Examples:
     """
-    depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
     maxit: int = len(depths)
     if direction == "backwards":
         depths = depths[::-1]
@@ -51,9 +49,10 @@ def _greedy_composite(
     # check all the intervals are > than the min_length
     # if they are smaller than the min_length then append them to
     # the previous sample
-    if np.any(output < min_length):
-        pos_short = np.where(output)[0]
-        output = np.delete(output, pos_short - 1)
+    interval_lengths = np.abs(np.diff(output))
+    if np.any(interval_lengths < min_length):
+        pos_short = np.where(np.diff(output) < min_length)[0]
+        output = np.delete(output, pos_short)
     # if we are going backwards flip the output the right way
     if direction == "backwards":
         output = output[::-1]
@@ -61,8 +60,7 @@ def _greedy_composite(
 
 
 def _global_composite(
-    depth_from: NDArray,
-    depth_to: NDArray,
+    depths: NDArray,
     composite_length: float,
     min_length: float = 0,
 ) -> NDArray:
@@ -86,7 +84,6 @@ def _global_composite(
     """
 
     G = nx.DiGraph()
-    depths: NDArray = np.unique(np.concatenate([depth_from, depth_to]))
     maxit: int = len(depths)
     # create all the nodes
     n: int
@@ -417,10 +414,11 @@ def HardComposite(
     # one possibility is to use dummy coding and calculate it that way
 
     # create a set of from and to depths covering the samplefrom and to depths
+    depths: NDArray = np.unique(np.concatenate([sfrom, sto]))
     if method == "greedy":
-        intervals = _greedy_composite(sfrom, sto, interval, direction, min_length)
+        intervals = _greedy_composite(depths, interval, direction, min_length)
     elif method == "global":
-        intervals = _global_composite(sfrom, sto, interval, min_length)
+        intervals = _global_composite(depths, interval, min_length)
     else:
         raise ValueError(f'{method} must be "greedy" or "global"')
     compositefrom, compositeto = _convert_intervals_to_from_to(intervals)
