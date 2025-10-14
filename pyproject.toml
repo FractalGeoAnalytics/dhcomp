@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dhcomp"
-version = "0.4.6"
+version = "0.4.7"
 description = "Simple utility to composite drill hole data in python"
 authors = ["Ben <ben@fractalgeoanalytics.com>"]
 license = "MIT"
@@ -8,13 +8,13 @@ readme = "README.md"
 packages = [{include = "dhcomp"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-numpy = "^1.21"
+python = ">3.9"
+numpy = ">1.21"
 pandas = "*"
 networkx = "*"
 
 [tool.poetry.dev-dependencies]
-black = {version = "^22.6.0", allow-prereleases = true}
+black = {version = ">22.6.0", allow-prereleases = true}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
