@@ -1,24 +1,21 @@
-[tool.poetry]
-name = "dhcomp"
-version = "0.4.7"
-description = "Simple utility to composite drill hole data in python"
-authors = ["Ben <ben@fractalgeoanalytics.com>"]
-license = "MIT"
-readme = "README.md"
-packages = [{include = "dhcomp"}]
+[project]
+name = 'dhcomp'
+version = '0.4.7'
+description = 'Simple utility to composite drill hole data in python'
+license = 'MIT'
+readme = 'README.md'
+dependencies = ['numpy','pandas','networkx']
 
-[tool.poetry.dependencies]
-python = ">3.9"
-numpy = ">1.21"
-pandas = "*"
-networkx = "*"
-
-[tool.poetry.dev-dependencies]
-black = {version = ">22.6.0", allow-prereleases = true}
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+dev-dependencies = ['black']
 
 [tox]
 isolated_build = true
+
+[author]
+author='Ben Chi'
+url='https://github.com/FractalGeoAnalytics/dhcomp'
+author_email='ben@fractalgeoanalytics.com'
