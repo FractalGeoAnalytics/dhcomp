@@ -10,7 +10,9 @@ dependencies = ['numpy','pandas','networkx']
 [build-system]
 requires = ['setuptools']
 build-backend = 'setuptools.build_meta'
-dev-dependencies = ['black']
+
+[project.optional-dependencies]
+dev = ['black']
 
 [tox]
 isolated_build = true
